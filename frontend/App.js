@@ -9,6 +9,7 @@ import Login from './Pages/Auth/Login';
 import Register from './Pages/Auth/Register';
 import Home from './Pages/Home';
 import CustomDrawer from './Pages/CustomDrawer';
+import ViewAssignedTasks from './Pages/Task/ViewAssignedTasks';
 
 const Stack = createStackNavigator();
 
@@ -42,6 +43,11 @@ export default function App() {
             name="Home" 
             component={Home} 
             options={{ headerShown: false }} 
+          />
+          <Stack.Screen
+            name="AssignedTasks"
+            component={ViewAssignedTasks}
+            options={{ headerShown: false }} // or true, depending on your UI
           />
         </Stack.Navigator>
       </NavigationContainer>
