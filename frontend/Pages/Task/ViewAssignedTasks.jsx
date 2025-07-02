@@ -74,29 +74,37 @@ const ViewAssignedTasks = () => {
     }
   };
 
-  const renderTask = ({ item }) => (
-    <View style={styles.taskCard}>
-      <Ionicons name="clipboard-outline" size={24} color="#2f4f4f" />
-      <View style={styles.taskInfo}>
-        <Text style={styles.taskTitle}>{item.type}</Text>
-        <Text style={styles.taskTime}>
-          {new Date(item.scheduleDate).toLocaleDateString()} –{' '}
-          {item.scheduleTimes?.join(', ') || 'No time set'}
-        </Text>
-        <Text style={styles.taskTime}>Animal: {item.animalId?.name || 'N/A'}</Text>
-        <Text style={styles.taskTime}>Status: {item.status}</Text>
-      </View>
-      <TouchableOpacity
-        onPress={() => {
-          setSelectedTaskId(item._id);
-          setShowStatusModal(true);
-        }}
-      >
-        <Ionicons name="ellipsis-vertical" size={20} color="#2f4f4f" />
-      </TouchableOpacity>
-    </View>
-  );
+    const renderTask = ({ item }) => {
+      const cardStyle = [
+        styles.taskCard,
+        item.status === 'Completed'
+          ? { backgroundColor: '#A4D9AB' } 
+          : { backgroundColor: '#e0e0e0' } 
+      ];
 
+      return (
+        <View style={cardStyle}>
+          <Ionicons name="clipboard-outline" size={24} color="#2f4f4f" />
+          <View style={styles.taskInfo}>
+            <Text style={styles.taskTitle}>{item.type}</Text>
+            <Text style={styles.taskTime}>
+              {new Date(item.scheduleDate).toLocaleDateString()} –{' '}
+              {item.scheduleTimes?.join(', ') || 'No time set'}
+            </Text>
+            <Text style={styles.taskTime}>Animal: {item.animalId?.name || 'N/A'}</Text>
+            <Text style={styles.taskTime}>Status: {item.status}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => {
+              setSelectedTaskId(item._id);
+              setShowStatusModal(true);
+            }}
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color="#2f4f4f" />
+          </TouchableOpacity>
+        </View>
+      );
+    };
   if (loading) {
     return (
       <View style={styles.centered}>
