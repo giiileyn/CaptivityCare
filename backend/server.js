@@ -26,4 +26,8 @@ app.get('/', (req, res) => {
 app.use('/auth', require('./routes/auth')); // Authentication routes
 
 app.use('/user', require('./routes/user')); // User routes
+app.use('/animal', require('./routes/animals')); // Animal routes
+
+app.use('/tasks', require('./routes/task')); 
+
 app.listen(5000, () => console.log('Server is running'));

@@ -93,7 +93,8 @@ const Login = ({ navigation }) => {
       await AsyncStorage.multiSet([
         ['userToken', data.token],
         ['userData', JSON.stringify(data.user)],
-        ['isAuthenticated', 'true']
+        ['isAuthenticated', 'true'],
+         ['userId', data.user.id]
       ]);
 
       showToast('success', 'Login Successful', `Welcome back, ${data.user.name || data.user.email}!`);

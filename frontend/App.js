@@ -10,6 +10,8 @@ import Register from './Pages/Auth/Register';
 import Home from './Pages/Home';
 import CustomDrawer from './Pages/CustomDrawer';
 import ViewAssignedTasks from './Pages/Task/ViewAssignedTasks';
+import ViewAnimalProfile from './Pages/AnimalProf/viewAnimalProfile';
+
 
 const Stack = createStackNavigator();
 
@@ -47,7 +49,12 @@ export default function App() {
           <Stack.Screen
             name="AssignedTasks"
             component={ViewAssignedTasks}
-            options={{ headerShown: false }} // or true, depending on your UI
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen
+            name="AnimalView" // 🔗 route must match the drawer item
+            component={ViewAnimalProfile}
+            options={{ headerShown: false }}
           />
         </Stack.Navigator>
       </NavigationContainer>
