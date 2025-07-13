@@ -9,12 +9,18 @@ import {
   ActivityIndicator,
   Modal,
   Animated,
+  Dimensions,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import API_BASE_URL from '../../utils/api';
 import ConfettiCannon from 'react-native-confetti-cannon';
+import { useNavigation } from '@react-navigation/native';
+import CustomDrawer from '../CustomDrawer'; // adjust path if needed
+
+const { width } = Dimensions.get('window');
 
 const ViewAssignedTasks = () => {
   const [userName, setUserName] = useState('');
@@ -24,6 +30,44 @@ const ViewAssignedTasks = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const confettiRef = useRef(null);
+  const navigation = useNavigation();
+
+  // Drawer animation states
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(-width * 0.8)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  const openDrawer = () => {
+    setDrawerVisible(true);
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 350,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeDrawer = () => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: -width * 0.8,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setDrawerVisible(false));
+  };
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -74,15 +118,18 @@ const ViewAssignedTasks = () => {
     }
   };
 
-    const renderTask = ({ item }) => {
-      const cardStyle = [
-        styles.taskCard,
-        item.status === 'Completed'
-          ? { backgroundColor: '#A4D9AB' } 
-          : { backgroundColor: '#e0e0e0' } 
-      ];
+  const renderTask = ({ item }) => {
+    const cardStyle = [
+      styles.taskCard,
+      item.status === 'Completed'
+        ? { backgroundColor: '#A4D9AB' }
+        : { backgroundColor: '#e0e0e0' },
+    ];
 
-      return (
+    return (
+      <TouchableOpacity
+        onPress={() => navigation.navigate('ViewDetailedTask', { task: item })}
+      >
         <View style={cardStyle}>
           <Ionicons name="clipboard-outline" size={24} color="#2f4f4f" />
           <View style={styles.taskInfo}>
@@ -91,7 +138,9 @@ const ViewAssignedTasks = () => {
               {new Date(item.scheduleDate).toLocaleDateString()} –{' '}
               {item.scheduleTimes?.join(', ') || 'No time set'}
             </Text>
-            <Text style={styles.taskTime}>Animal: {item.animalId?.name || 'N/A'}</Text>
+            <Text style={styles.taskTime}>
+              Animal: {item.animalId?.name || 'N/A'}
+            </Text>
             <Text style={styles.taskTime}>Status: {item.status}</Text>
           </View>
           <TouchableOpacity
@@ -103,8 +152,10 @@ const ViewAssignedTasks = () => {
             <Ionicons name="ellipsis-vertical" size={20} color="#2f4f4f" />
           </TouchableOpacity>
         </View>
-      );
-    };
+      </TouchableOpacity>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -121,7 +172,7 @@ const ViewAssignedTasks = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={openDrawer}>
             <Ionicons name="menu" size={28} color="#a4d9ab" />
           </TouchableOpacity>
           <TouchableOpacity>
@@ -129,13 +180,17 @@ const ViewAssignedTasks = () => {
           </TouchableOpacity>
         </View>
         <Text style={styles.headerGreeting}>Hello, Farmer {userName}!</Text>
-        <Text style={styles.headerSub}>Are you going to complete all the task today?</Text>
+        <Text style={styles.headerSub}>
+          Are you going to complete all the task today?
+        </Text>
       </View>
 
       {/* Task List */}
       <Text style={styles.sectionTitle}>My Tasks</Text>
       {tasks.length === 0 ? (
-        <Text style={{ textAlign: 'center', marginTop: 20 }}>No tasks assigned.</Text>
+        <Text style={{ textAlign: 'center', marginTop: 20 }}>
+          No tasks assigned.
+        </Text>
       ) : (
         <FlatList
           data={tasks}
@@ -150,18 +205,36 @@ const ViewAssignedTasks = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Set Task Status</Text>
-            <TouchableOpacity
-              style={[styles.statusButton, { backgroundColor: '#28a745' }]}
-              onPress={() => updateTaskStatus('Completed')}
-            >
-              <Text style={styles.statusButtonText}>Completed</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.statusButton, { backgroundColor: '#dc3545' }]}
-              onPress={() => updateTaskStatus('Pending')}
-            >
-              <Text style={styles.statusButtonText}>Pending</Text>
-            </TouchableOpacity>
+            {(() => {
+              const selectedTask = tasks.find(
+                (task) => task._id === selectedTaskId
+              );
+              const isCompleted = selectedTask?.status === 'Completed';
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.statusButton,
+                    {
+                      backgroundColor: isCompleted ? '#cccccc' : '#28a745',
+                    },
+                  ]}
+                  onPress={() => {
+                    if (!isCompleted) updateTaskStatus('Completed');
+                  }}
+                  disabled={isCompleted}
+                >
+                  <Text
+                    style={[
+                      styles.statusButtonText,
+                      { color: isCompleted ? '#888888' : '#fff' },
+                    ]}
+                  >
+                    Completed
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
             <TouchableOpacity onPress={() => setShowStatusModal(false)}>
               <Text style={{ color: '#2f4f4f', marginTop: 10 }}>Cancel</Text>
             </TouchableOpacity>
@@ -169,7 +242,6 @@ const ViewAssignedTasks = () => {
         </View>
       </Modal>
 
-      {/* Success Feedback */}
       {showSuccess && (
         <View style={styles.successContainer}>
           <Text style={styles.successText}>✅ Task status updated!</Text>
@@ -182,78 +254,179 @@ const ViewAssignedTasks = () => {
         autoStart={false}
         ref={confettiRef}
       />
+
+      {/* Calendar Button */}
+      <TouchableOpacity
+        style={styles.calendarButton}
+        onPress={() => navigation.navigate('CalendarTask')}
+      >
+        <Ionicons name="calendar-outline" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Drawer */}
+      <Modal visible={drawerVisible} transparent animationType="none">
+        <View style={styles.modalContainer}>
+          <Animated.View
+            style={[styles.overlay, { opacity: overlayOpacity }]}
+          >
+            <TouchableOpacity style={{ flex: 1 }} onPress={closeDrawer} />
+          </Animated.View>
+          <Animated.View
+            style={[styles.drawerContainer, { transform: [{ translateX: slideAnim }] }]}
+          >
+            <CustomDrawer navigation={navigation} onClose={closeDrawer} />
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
+
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingTop: StatusBar.currentHeight || 20 },
+  container: {
+    flex: 1,
+    backgroundColor: '#f6f9f7',
+  },
   header: {
     backgroundColor: '#2f4f4f',
+    paddingTop: 50,
+    paddingBottom: 30,
     paddingHorizontal: 20,
-    paddingVertical: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    elevation: 4,
   },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  headerGreeting: { fontSize: 20, color: '#fff', fontWeight: '600' },
-  headerSub: { fontSize: 14, color: '#d0f0c0', marginTop: 5 },
-  sectionTitle: {
-    fontSize: 16,
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  headerGreeting: {
+    color: '#ffffff',
+    fontSize: 22,
     fontWeight: 'bold',
-    marginHorizontal: 20,
+  },
+  headerSub: {
+    color: '#cccccc',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 20,
     marginBottom: 10,
+    marginHorizontal: 20,
     color: '#2f4f4f',
   },
   taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e0f5e9',
-    padding: 15,
     marginHorizontal: 20,
-    borderRadius: 15,
-    marginBottom: 10,
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 2,
   },
-  taskInfo: { flex: 1, marginLeft: 15 },
-  taskTitle: { fontSize: 16, fontWeight: '600', color: '#2f4f4f' },
-  taskTime: { fontSize: 12, color: '#666', marginTop: 2 },
+  taskInfo: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2f4f4f',
+  },
+  taskTime: {
+    fontSize: 13,
+    color: '#555',
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
     width: '80%',
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 15,
     alignItems: 'center',
-    elevation: 10,
+    elevation: 6,
   },
-  modalTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15, color: '#2f4f4f' },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2f4f4f',
+    marginBottom: 15,
+  },
   statusButton: {
-    width: '100%',
     paddingVertical: 10,
-    borderRadius: 8,
-    marginVertical: 5,
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 10,
   },
-  statusButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  statusButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   successContainer: {
     position: 'absolute',
-    bottom: 30,
+    top: 80,
     left: 0,
     right: 0,
-    backgroundColor: '#28a745',
-    padding: 12,
-    borderRadius: 8,
-    marginHorizontal: 20,
     alignItems: 'center',
-    elevation: 5,
+    zIndex: 10,
   },
-  successText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  successText: {
+    backgroundColor: '#a4d9ab',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    color: '#2f4f4f',
+    fontWeight: 'bold',
+  },
+  calendarButton: {
+    position: 'absolute',
+    bottom: 25,
+    right: 25,
+    backgroundColor: '#2f4f4f',
+    borderRadius: 30,
+    width: 56,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#00000088',
+  },
+  drawerContainer: {
+    width: width * 0.8,
+    height: '100%',
+    backgroundColor: '#fff',
+    paddingTop: 40,
+    elevation: 8,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
+
 
 export default ViewAssignedTasks;

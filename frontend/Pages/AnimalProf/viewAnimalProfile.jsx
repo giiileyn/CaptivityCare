@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import { useNavigation } from '@react-navigation/native';
 import API_BASE_URL from '../../utils/api';
 
 const ViewAnimalProfile = () => {
@@ -18,6 +19,9 @@ const ViewAnimalProfile = () => {
   const [loading, setLoading] = useState(true);
   const userName = 'Farmer';
 
+
+  const navigation = useNavigation();
+  
   const fetchAnimals = async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/animal/getAll`);
@@ -63,19 +67,28 @@ const ViewAnimalProfile = () => {
       {/* Animal Cards */}
       <ScrollView contentContainerStyle={styles.content}>
         {animals.map((item) => (
-          <View key={item._id} style={styles.card}>
-            <Image source={{ uri: item.photo }} style={styles.image} resizeMode="cover" />
-            <View style={styles.info}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.detail}>Species: {item.species}</Text>
-              <Text style={styles.detail}>Breed: {item.breed || 'N/A'}</Text>
-              <Text style={styles.detail}>Age: {item.age || 'Unknown'}</Text>
-              <Text style={styles.status}>
-                Status: <Text style={{ color: '#4CAF50' }}>🟢 {item.status}</Text>
-              </Text>
-            </View>
+  <TouchableOpacity
+    key={item._id}
+    onPress={() => navigation.navigate('AnimalDetailView', { animal: item })}
+    style={styles.card}
+  >
+    <Image source={{ uri: item.photo }} style={styles.image} resizeMode="cover" />
+    <View style={styles.info}>
+      <Text style={styles.name}>{item.name}</Text>
+      <Text style={styles.detail}>Species: {item.species}</Text>
+      <Text style={styles.detail}>Breed: {item.breed || 'N/A'}</Text>
+      <Text style={styles.detail}>Age: {item.age || 'Unknown'}</Text>
+      <Text style={styles.status}>
+        Status: <Text style={{ color: '#4CAF50' }}>🟢 {item.status}</Text>
+      </Text>
+    </View>
+  </TouchableOpacity>
+))}
+        {/* {animals.length === 0 && (
+          <View style={styles.centered}>
+            <Text>No animals found.</Text>
           </View>
-        ))}
+        )} */}
       </ScrollView>
     </View>
   );

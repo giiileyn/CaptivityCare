@@ -25,7 +25,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
 
   const menuItems = [
      { id: '1', title: 'View Assigned Tasks', icon: 'clipboard-outline', route: 'AssignedTasks' },
-     { id: '2', title: 'Input Daily Animal Behavior', icon: 'create-outline', route: 'AnimalBehaviorInput' },
+     { id: '2', title: 'Input Daily Animal Behavior', icon: 'create-outline', route: 'AddBehavior' },
      { id: '3', title: 'View Animal', icon: 'paw-outline', route: 'AnimalView' },
   ];
 

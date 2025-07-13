@@ -3,6 +3,9 @@ const router = express.Router();
 const Task = require('../models/Task');
 
 // ================================
+
+
+
 // CREATE task
 // ================================
 // router.post('/add', async (req, res) => {
@@ -226,7 +229,6 @@ router.put('/status/:id', async (req, res) => {
 
     // Validate input
     if (!['Pending', 'Completed'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status value' });
     }
 
     const update = {

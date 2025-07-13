@@ -11,7 +11,10 @@ import Home from './Pages/Home';
 import CustomDrawer from './Pages/CustomDrawer';
 import ViewAssignedTasks from './Pages/Task/ViewAssignedTasks';
 import ViewAnimalProfile from './Pages/AnimalProf/viewAnimalProfile';
-
+import AnimalDetailView from './Pages/AnimalProf/AnimalDetailView';
+import ViewDetailedTask from './Pages/Task/ViewDetailedTask';
+import CalendarTask from './Pages/Task/CalendarTask';
+import AddBehavior from './Pages/Behavior/AddBehavior';
 
 const Stack = createStackNavigator();
 
@@ -24,6 +27,7 @@ const theme = {
     background: '#f6f6f6',
   },
 };
+
 
 export default function App() {
   return (
@@ -52,10 +56,31 @@ export default function App() {
             options={{ headerShown: false }} 
           />
           <Stack.Screen
-            name="AnimalView" // 🔗 route must match the drawer item
+            name="AnimalView" 
             component={ViewAnimalProfile}
             options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="ViewDetailedTask" 
+            component={ViewDetailedTask}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="CalendarTask" 
+            component={CalendarTask}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AddBehavior" 
+            component={AddBehavior}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AnimalDetailView" 
+            component={AnimalDetailView}
+            options={{ headerShown: false }}
+          />
+          
         </Stack.Navigator>
       </NavigationContainer>
       <Toast 
