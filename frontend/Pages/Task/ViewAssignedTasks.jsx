@@ -19,7 +19,6 @@ import axios from 'axios';
 import API_BASE_URL from '../../utils/api';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useNavigation } from '@react-navigation/native';
-import CustomDrawer from '../CustomDrawer';
 
 const { width } = Dimensions.get('window');
 
@@ -71,40 +70,28 @@ const ViewAssignedTasks = () => {
   currentWeekStart.setDate(today.getDate() + weekIndex * 7);
   const weekDates = generateWeek(currentWeekStart);
 
-  const [drawerVisible, setDrawerVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-width * 0.8)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const updateTaskStatus = async (newStatus) => {
+    try {
+      await axios.put(`${API_BASE_URL}/tasks/status/${selectedTaskId}`, {
+        status: newStatus,
+      });
 
-  const openDrawer = () => {
-    setDrawerVisible(true);
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 350,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
+      setTasks((prev) =>
+        prev.map((task) =>
+          task._id === selectedTaskId ? { ...task, status: newStatus } : task
+        )
+      );
 
-  const closeDrawer = () => {
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: -width * 0.8,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(() => setDrawerVisible(false));
+      setShowSuccess(true);
+      confettiRef.current && confettiRef.current.start();
+
+      setTimeout(() => setShowSuccess(false), 2000);
+    } catch (error) {
+      console.error('Error updating status:', error);
+    } finally {
+      setShowStatusModal(false);
+      setSelectedTaskId(null);
+    }
   };
 
   useEffect(() => {
@@ -147,50 +134,36 @@ const ViewAssignedTasks = () => {
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+
+      {/* Header */}
       <View style={{
-      margin: 12,
-      paddingVertical: 18,
-      paddingHorizontal: 16,
-      backgroundColor: '#fff',
-      borderBottomLeftRadius: 24,
-      borderBottomRightRadius: 24,
-      borderTopLeftRadius: 0,
-      borderTopRightRadius: 0,
-      elevation: 3,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
-    }}>
-    <View style={{
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center'
-    }}>
-    <TouchableOpacity onPress={openDrawer} style={{
-      backgroundColor: '#d8f5dc',
-      padding: 8,
-      borderRadius: 12
-    }}>
-      <Ionicons name="menu" size={20} color="#3e6652" />
-    </TouchableOpacity>
+        margin: 12,
+        paddingVertical: 18,
+        paddingHorizontal: 16,
+        backgroundColor: '#fff',
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <TouchableOpacity style={{ backgroundColor: '#d8f5dc', padding: 8, borderRadius: 12 }}>
+            <Ionicons name="menu" size={20} color="#3e6652" />
+          </TouchableOpacity>
 
-      <Text style={{
-      fontSize: 18,
-      fontWeight: '600',
-      color: '#3e6652'
-    }}>{formattedMonth}, {formattedYear}</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: '#3e6652' }}>
+            {formattedMonth}, {formattedYear}
+          </Text>
 
-      <TouchableOpacity>
-      <Ionicons name="search" size={20} color="#3e6652" style={{
-        backgroundColor: '#d8f5dc',
-        padding: 8,
-        borderRadius: 12
-      }} />
-      </TouchableOpacity>
+          <TouchableOpacity>
+            <Ionicons name="search" size={20} color="#3e6652" style={{ backgroundColor: '#d8f5dc', padding: 8, borderRadius: 12 }} />
+          </TouchableOpacity>
+        </View>
 
-    </View>
-
+        {/* Days */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 }}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
             <View key={idx} style={{ width: 40, alignItems: 'center' }}>
@@ -223,6 +196,7 @@ const ViewAssignedTasks = () => {
       </View>
 
       <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#3e6652', marginLeft: 12, marginTop: 12 }}>My Tasks</Text>
+
       {loading ? (
         <ActivityIndicator size="large" color="#3e6652" style={{ marginTop: 20 }} />
       ) : filteredTasks.length === 0 ? (
@@ -232,19 +206,78 @@ const ViewAssignedTasks = () => {
           data={filteredTasks}
           keyExtractor={(item) => item._id}
           renderItem={({ item }) => (
-            <View style={{ backgroundColor: item.status === 'Completed' ? '#A4D9AB' : '#e0e0e0', margin: 10, padding: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
-              <Image source={{ uri: item.animalId?.photo || 'https://via.placeholder.com/50' }} style={{ width: 50, height: 50, borderRadius: 25, marginRight: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: 'bold' }}>{item.type}</Text>
-                <Text>{new Date(item.scheduleDate).toLocaleDateString()} – {item.scheduleTimes?.join(', ') || 'No time set'}</Text>
-                <Text>Animal: {item.animalId?.name || 'N/A'}</Text>
-                <Text>Status: {item.status}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('ViewDetailedTask', { task: item })}>
+              <View style={{
+                backgroundColor: item.status === 'Completed' ? '#A4D9AB' : '#e0e0e0',
+                margin: 10,
+                padding: 10,
+                borderRadius: 8,
+                flexDirection: 'row',
+                alignItems: 'center'
+              }}>
+                <Image source={{ uri: item.animalId?.photo || 'https://via.placeholder.com/50' }}
+                  style={{ width: 50, height: 50, borderRadius: 25, marginRight: 10 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: 'bold' }}>{item.type}</Text>
+                  <Text>{new Date(item.scheduleDate).toLocaleDateString()} – {item.scheduleTimes?.join(', ') || 'No time set'}</Text>
+                  <Text>Animal: {item.animalId?.name || 'N/A'}</Text>
+                  <Text>Status: {item.status}</Text>
+                </View>
+                <TouchableOpacity onPress={() => {
+                  setSelectedTaskId(item._id);
+                  setShowStatusModal(true);
+                }}>
+                  <Ionicons name="ellipsis-vertical" size={20} color="#2f4f4f" />
+                </TouchableOpacity>
               </View>
-            </View>
+            </TouchableOpacity>
           )}
           contentContainerStyle={{ paddingBottom: 30 }}
         />
       )}
+
+      {/* Status Modal */}
+      {showStatusModal && (
+        <Modal transparent animationType="fade" visible={showStatusModal}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>Set Task Status</Text>
+              <TouchableOpacity
+              style={[
+                styles.statusButton,
+                tasks.find((t) => t._id === selectedTaskId)?.status === 'Completed' && { backgroundColor: '#ccc' },
+              ]}
+              onPress={() => {
+                const task = tasks.find((t) => t._id === selectedTaskId);
+                if (task?.status !== 'Completed') {
+                  updateTaskStatus('Completed');
+                }
+              }}
+              disabled={tasks.find((t) => t._id === selectedTaskId)?.status === 'Completed'}
+            >
+              <Text style={[
+                styles.statusButtonText,
+                tasks.find((t) => t._id === selectedTaskId)?.status === 'Completed' && { color: '#888' }
+              ]}>
+                Mark as Completed
+              </Text>
+            </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setShowStatusModal(false)}>
+                <Text style={{ color: '#2f4f4f', marginTop: 10 }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Confetti and Success */}
+      {showSuccess && (
+        <View style={styles.successContainer}>
+          <Text style={styles.successText}>✅ Task status updated!</Text>
+        </View>
+      )}
+      <ConfettiCannon count={100} origin={{ x: 200, y: 0 }} fadeOut autoStart={false} ref={confettiRef} />
     </View>
   );
 };
