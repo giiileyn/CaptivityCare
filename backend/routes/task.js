@@ -7,7 +7,7 @@ const Task = require('../models/Task');
 
 
 // CREATE task
-// ================================
+// ===============================
 // router.post('/add', async (req, res) => {
 //   try {
 //     const {
@@ -68,9 +68,24 @@ router.get('/getAll', async (req, res) => {
   }
 });
 
+
+// ================================
+// GET all tasks (detailed view)
+// ================================
+router.get('/getAll', async (req, res) => {
+  try {
+    const tasks = await Task.find()
+      .populate('assignedTo')
+      .populate('animalId');
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ================================
 // GET calendar-friendly tasks
-// ================================
+// ===============================
 router.get('/getTask', async (req, res) => {
   try {
     const tasks = await Task.find()

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,15 @@ import {
   Dimensions,
   Modal,
   TextInput,
+  Animated,
+  Easing,
 } from 'react-native';
 import axios from 'axios';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../../utils/api';
+import CustomDrawer from '../CustomDrawer';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -23,11 +26,46 @@ const ViewAnimals = () => {
   const [animals, setAnimals] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
-
   const [eating, setEating] = useState('Normal');
   const [movement, setMovement] = useState('Active');
   const [mood, setMood] = useState('Calm');
   const [notes, setNotes] = useState('');
+
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(-screenWidth * 0.8)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  const openDrawer = () => {
+    setDrawerVisible(true);
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 350,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeDrawer = () => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: -screenWidth * 0.8,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setDrawerVisible(false));
+  };
 
   useEffect(() => {
     const fetchAnimals = async () => {
@@ -50,35 +88,30 @@ const ViewAnimals = () => {
   };
 
   const submitBehavior = async () => {
-  try {
-    const userId = await AsyncStorage.getItem('userId'); // ✅ get the saved userId
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        alert('User ID not found. Please log in again.');
+        return;
+      }
 
-    if (!userId) {
-      alert('User ID not found. Please log in again.');
-      return;
+      await axios.post(`${API_BASE_URL}/behavior/add`, {
+        animalId: selectedAnimal._id,
+        eating,
+        movement,
+        mood,
+        notes,
+        recordedBy: userId,
+      });
+
+      alert('Behavior logged!');
+      setModalVisible(false);
+      setNotes('');
+    } catch (err) {
+      console.error('Submit error:', err.response?.data || err.message);
+      alert('Error submitting behavior');
     }
-
-    await axios.post(`${API_BASE_URL}/behavior/add`, {
-      animalId: selectedAnimal._id,
-      eating,
-      movement,
-      mood,
-      notes,
-      recordedBy: userId, 
-    });
-
-    alert('Behavior logged!');
-    setModalVisible(false);
-    setNotes('');
-  } catch (err) {
-    console.error('Submit error:', err.response?.data || err.message);
-    alert('Error submitting behavior');
-  }
-};
- 
-
-
-
+  };
 
   const renderItem = ({ item }) => (
     <View style={styles.cardWrapper}>
@@ -106,7 +139,9 @@ const ViewAnimals = () => {
       <StatusBar backgroundColor="#2d4b37" barStyle="light-content" />
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Icon name="menu" size={26} color="#fff" />
+          <TouchableOpacity onPress={openDrawer}>
+            <Icon name="menu" size={26} color="#fff" />
+          </TouchableOpacity>
           <Icon name="search" size={24} color="#fff" />
         </View>
         <Text style={styles.greeting}>Hello,</Text>
@@ -161,9 +196,33 @@ const ViewAnimals = () => {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={drawerVisible} transparent animationType="none">
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          <Animated.View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', opacity: overlayOpacity }}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={closeDrawer} />
+          </Animated.View>
+          <Animated.View
+            style={{
+              width: screenWidth * 0.8,
+              backgroundColor: '#fff',
+              transform: [{ translateX: slideAnim }],
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              zIndex: 10,
+              elevation: 5,
+            }}
+          >
+            <CustomDrawer onClose={closeDrawer} />
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 };
+
 
 export default ViewAnimals;
 
