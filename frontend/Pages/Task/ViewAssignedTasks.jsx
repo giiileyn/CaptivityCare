@@ -133,22 +133,13 @@ const ViewAssignedTasks = () => {
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
-  const taskDate = new Date(task.scheduleDate);
-  const localSelected = new Date(selectedDate);
-  
-  // Normalize both to YYYY-MM-DD strings in Asia/Manila timezone
-  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
-  const taskDateStr = formatter.format(taskDate); // 'YYYY-MM-DD'
-  const selectedDateStr = formatter.format(localSelected);
-
-  const isSameDay = taskDateStr === selectedDateStr;
-  const isRecurring = task.isRecurring;
-  const isRecurringAndValid =
-    isRecurring && new Date(selectedDateStr) >= new Date(taskDateStr);
-
-  return isSameDay || isRecurringAndValid;
-});
-
+    const selectedDateISO = selectedDate.toISOString().slice(0, 10);
+    const taskDateISO = new Date(task.scheduleDate).toISOString().slice(0, 10);
+    const isSameDay = taskDateISO === selectedDateISO;
+    const isRecurring = task.isRecurring;
+    const isRecurringAndValid = isRecurring && new Date(selectedDate) >= new Date(task.scheduleDate);
+    return isSameDay || isRecurringAndValid;
+  });
 
   const formattedMonth = selectedDate.toLocaleString('default', { month: 'long' });
   const formattedYear = selectedDate.getFullYear();
@@ -156,16 +147,49 @@ const ViewAssignedTasks = () => {
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={{ padding: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color="#3e6652" />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#3e6652' }}>{formattedMonth}, {formattedYear}</Text>
-          <TouchableOpacity>
-            <Ionicons name="search" size={20} color="#3e6652" />
-          </TouchableOpacity>
-        </View>
+      <View style={{
+      margin: 12,
+      paddingVertical: 18,
+      paddingHorizontal: 16,
+      backgroundColor: '#fff',
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
+      borderTopLeftRadius: 0,
+      borderTopRightRadius: 0,
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+    }}>
+    <View style={{
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    }}>
+    <TouchableOpacity onPress={openDrawer} style={{
+      backgroundColor: '#d8f5dc',
+      padding: 8,
+      borderRadius: 12
+    }}>
+      <Ionicons name="menu" size={20} color="#3e6652" />
+    </TouchableOpacity>
+
+      <Text style={{
+      fontSize: 18,
+      fontWeight: '600',
+      color: '#3e6652'
+    }}>{formattedMonth}, {formattedYear}</Text>
+
+      <TouchableOpacity>
+      <Ionicons name="search" size={20} color="#3e6652" style={{
+        backgroundColor: '#d8f5dc',
+        padding: 8,
+        borderRadius: 12
+      }} />
+      </TouchableOpacity>
+
+    </View>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 }}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
