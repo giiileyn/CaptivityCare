@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,34 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 
 const AnimalDetailView = ({ route, navigation }) => {
   const { animal } = route.params;
+  const [behaviors, setBehaviors] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchBehaviors = async () => {
+    try {
+      const res = await axios.get(`http://192.168.254.107:5000/behavior/singlebehavior/${animal._id}`);
+      setBehaviors(res.data.behaviors || []);
+    } catch (err) {
+      console.error('Error fetching behaviors:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBehaviors();
+  }, []);
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#2f4f4f" />
 
       {/* Header */}
@@ -49,11 +69,58 @@ const AnimalDetailView = ({ route, navigation }) => {
           </View>
         </View>
       </View>
-    </View>
+
+      {/* Behavior Logs */}
+      <View style={styles.behaviorSection}>
+  <Text style={styles.behaviorTitle}>🐾 Animal Behavior Logs</Text>
+
+  {loading ? (
+    <ActivityIndicator size="large" color="#2f4f4f" />
+  ) : behaviors.length === 0 ? (
+    <Text style={styles.noBehavior}>No behavior records found.</Text>
+  ) : (
+    behaviors.map((log) => (
+      <View key={log._id} style={styles.behaviorCard}>
+        <Text style={styles.behaviorDate}>
+          {new Date(log.date).toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </Text>
+
+        <View style={styles.behaviorRow}>
+          <Text style={styles.iconLabel}>🍽️</Text>
+          <Text style={styles.behaviorText}>Eating: {log.eating}</Text>
+        </View>
+
+        <View style={styles.behaviorRow}>
+          <Text style={styles.iconLabel}>🚶</Text>
+          <Text style={styles.behaviorText}>Movement: {log.movement}</Text>
+        </View>
+
+        <View style={styles.behaviorRow}>
+          <Text style={styles.iconLabel}>😐</Text>
+          <Text style={styles.behaviorText}>Mood: {log.mood}</Text>
+        </View>
+
+        {log.notes ? (
+          <View style={styles.notesContainer}>
+            <Text style={styles.notesLabel}>📝 Notes:</Text>
+            <Text style={styles.notesText}>{log.notes}</Text>
+          </View>
+        ) : null}
+      </View>
+    ))
+  )}
+</View>
+
+    </ScrollView>
   );
 };
 
 export default AnimalDetailView;
+
 
 const styles = StyleSheet.create({
   container: {
@@ -108,19 +175,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   tagContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    width: '90%',
-    flexWrap: 'wrap',
-    gap: 10,
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: 10,                    
+  marginTop: 10,
   },
   tag: {
-    backgroundColor: '#c2e7c8',
-    padding: 12,
-    borderRadius: 14,
-    alignItems: 'center',
-    minWidth: 100,
-    margin: 5,
+  backgroundColor: '#c2e7c8',
+  paddingVertical: 10,
+  paddingHorizontal: 12,
+  borderRadius: 14,
+  alignItems: 'center',
+  marginHorizontal: 6,
+  flexShrink: 1,
   },
   tagText: {
     fontSize: 14,
@@ -132,5 +200,71 @@ const styles = StyleSheet.create({
     color: '#2f4f4f',
     opacity: 0.7,
   },
+     behaviorSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    marginTop: 25,
+  },
+  behaviorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#2f4f4f',
+  },
+  behaviorCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+    borderLeftWidth: 5,
+    borderLeftColor: '#8ac6a4',
+  },
+  behaviorDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4a7c59',
+    marginBottom: 10,
+  },
+  behaviorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  iconLabel: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  behaviorText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  notesContainer: {
+    marginTop: 10,
+    backgroundColor: '#f2f2f2',
+    borderRadius: 8,
+    padding: 10,
+  },
+  notesLabel: {
+    fontWeight: '600',
+    marginBottom: 4,
+    color: '#444',
+  },
+  notesText: {
+    fontSize: 14,
+    color: '#555',
+  },
+  noBehavior: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+
+
 });
 
