@@ -30,10 +30,46 @@ const ViewAssignedTasks = () => {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(today ?? new Date());
   const confettiRef = useRef(null);
   const navigation = useNavigation();
+
+  const timeZone = 'Asia/Manila';
+
+  const getPhilippineToday = () => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    });
+
+    const parts = formatter.formatToParts(new Date());
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+
+    return new Date(`${year}-${month}-${day}T00:00:00`);
+  };
+
+  const today = getPhilippineToday();
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [weekIndex, setWeekIndex] = useState(0);
+
+  const generateWeek = (startDate) => {
+    const week = [];
+    const start = new Date(startDate);
+    start.setDate(start.getDate() - start.getDay());
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      week.push(d);
+    }
+    return week;
+  };
+
+  const currentWeekStart = new Date(today);
+  currentWeekStart.setDate(today.getDate() + weekIndex * 7);
+  const weekDates = generateWeek(currentWeekStart);
 
   const [drawerVisible, setDrawerVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(-width * 0.8)).current;
@@ -94,235 +130,102 @@ const ViewAssignedTasks = () => {
 
     loadUserData();
     fetchTasks();
-    setCurrentDate(new Date());
   }, []);
 
-  const formattedMonth = currentDate.toLocaleString('default', { month: 'long' });
-  const formattedYear = currentDate.getFullYear();
- const timeZone = 'Asia/Manila';
-
-const getPhilippineDate = () => {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-  });
-
-  const parts = formatter.formatToParts(new Date());
-
-  const year = parts.find(p => p.type === 'year')?.value;
-  const month = parts.find(p => p.type === 'month')?.value;
-  const day = parts.find(p => p.type === 'day')?.value;
-  const hour = parts.find(p => p.type === 'hour')?.value;
-  const minute = parts.find(p => p.type === 'minute')?.value;
-  const second = parts.find(p => p.type === 'second')?.value;
-
-  // Build Date object manually
-  return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
-};
-
-const today = getPhilippineDate();
-
-
-  // Generate 7 days: 3 before, today, 3 after
-  const getWeekDates = () => {
-    const dates = [];
-    for (let i = -3; i <= 3; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      dates.push(d);
-    }
-    return dates;
-  };
-
-  const weekDates = getWeekDates();
-  console.log('Selected Date:', selectedDate.toISOString());
-
   const filteredTasks = tasks.filter((task) => {
-  const selectedDateISO = new Date(selectedDate).toISOString().slice(0, 10);
-  const taskDateISO = new Date(task.scheduleDate).toISOString().slice(0, 10);
+  const taskDate = new Date(task.scheduleDate);
+  const localSelected = new Date(selectedDate);
+  
+  // Normalize both to YYYY-MM-DD strings in Asia/Manila timezone
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+  const taskDateStr = formatter.format(taskDate); // 'YYYY-MM-DD'
+  const selectedDateStr = formatter.format(localSelected);
 
-  console.log(`Checking task ${task._id}:`, taskDateISO, 'vs selected', selectedDateISO);
-
-  const isSameDay = taskDateISO === selectedDateISO;
+  const isSameDay = taskDateStr === selectedDateStr;
   const isRecurring = task.isRecurring;
-
   const isRecurringAndValid =
-    isRecurring && new Date(selectedDate) >= new Date(task.scheduleDate);
+    isRecurring && new Date(selectedDateStr) >= new Date(taskDateStr);
 
   return isSameDay || isRecurringAndValid;
-
 });
 
 
-  const updateTaskStatus = async (newStatus) => {
-    try {
-      await axios.put(`${API_BASE_URL}/tasks/status/${selectedTaskId}`, {
-        status: newStatus,
-      });
-
-      setTasks((prev) =>
-        prev.map((task) =>
-          task._id === selectedTaskId ? { ...task, status: newStatus } : task
-        )
-      );
-
-      setShowSuccess(true);
-      confettiRef.current && confettiRef.current.start();
-
-      setTimeout(() => setShowSuccess(false), 2000);
-    } catch (error) {
-      console.error('Error updating status:', error);
-    } finally {
-      setShowStatusModal(false);
-      setSelectedTaskId(null);
-    }
-  };
-
-  const renderTask = ({ item }) => {
-    const cardStyle = [
-      styles.taskCard,
-      item.status === 'Completed'
-        ? { backgroundColor: '#A4D9AB' }
-        : { backgroundColor: '#e0e0e0' },
-    ];
-
-    return (
-      <TouchableOpacity
-        onPress={() => navigation.navigate('ViewDetailedTask', { task: item })}
-      >
-        <View style={cardStyle}>
-          <Image
-            source={{ uri: item.animalId?.photo || 'https://via.placeholder.com/50' }}
-            style={styles.animalImage}
-          />
-          <View style={styles.taskInfo}>
-            <Text style={styles.taskTitle}>{item.type}</Text>
-            <Text style={styles.taskTime}>
-              {new Date(item.scheduleDate).toLocaleDateString()} –{' '}
-              {item.scheduleTimes?.join(', ') || 'No time set'}
-            </Text>
-            <Text style={styles.taskTime}>
-              Animal: {item.animalId?.name || 'N/A'}
-            </Text>
-            <Text style={styles.taskTime}>Status: {item.status}</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => {
-              setSelectedTaskId(item._id);
-              setShowStatusModal(true);
-            }}
-          >
-            <Ionicons name="ellipsis-vertical" size={20} color="#2f4f4f" />
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2f4f4f" />
-        <Text>Loading tasks...</Text>
-      </View>
-    );
-  }
+  const formattedMonth = selectedDate.toLocaleString('default', { month: 'long' });
+  const formattedYear = selectedDate.getFullYear();
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-
-      {/* New Header Style */}
-      <View style={styles.headerWrapper}>
-        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={20} color="#3e6652" />
-        </TouchableOpacity>
-
-        <View style={styles.headerTextWrapper}>
-          <Text style={styles.monthYear}>{formattedMonth}, {formattedYear}</Text>
-          <View style={styles.daysRow}>
-          {weekDates.map((date, index) => {
-          const dayLabel = date.toLocaleString('en-US', {
-            weekday: 'short',
-            timeZone,
-          });
-          const dayNum = date.getDate();
-          const isSelected =
-            date.toDateString() === selectedDate.toDateString();
-
-          return (
-            <TouchableOpacity
-              key={index}
-              style={styles.dayItem}
-              onPress={() => setSelectedDate(date)}
-            >
-              <Text style={styles.dayLabel}>{dayLabel}</Text>
-              <View style={[styles.dayCircle, isSelected && styles.activeDayCircle]}>
-                <Text style={[styles.dayNumber, isSelected && styles.activeDayNumber]}>
-                  {dayNum}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-
-
-          </View>
+      <View style={{ padding: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={20} color="#3e6652" />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#3e6652' }}>{formattedMonth}, {formattedYear}</Text>
+          <TouchableOpacity>
+            <Ionicons name="search" size={20} color="#3e6652" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.headerIcon}>
-          <Ionicons name="search" size={20} color="#3e6652" />
-        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 }}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
+            <View key={idx} style={{ width: 40, alignItems: 'center' }}>
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#3e6652' }}>{day}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 4 }}>
+          {weekDates.map((date, index) => {
+            const isSelected = date.toDateString() === selectedDate.toDateString();
+            return (
+              <TouchableOpacity key={index} onPress={() => setSelectedDate(date)}>
+                <View style={{ backgroundColor: isSelected ? '#112e20ff' : '#eee', borderRadius: 18, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: isSelected ? '#fff' : '#333', fontWeight: isSelected ? 'bold' : 'normal' }}>{date.getDate()}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+          <TouchableOpacity onPress={() => setWeekIndex(prev => prev - 1)}>
+            <Ionicons name="chevron-back" size={24} color="#3e6652" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setWeekIndex(prev => prev + 1)}>
+            <Ionicons name="chevron-forward" size={24} color="#3e6652" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Task List */}
-      <Text style={styles.sectionTitle}>My Tasks</Text>
-      {tasks.length === 0 ? (
-        <Text style={{ textAlign: 'center', marginTop: 20 }}>
-          No tasks assigned.
-        </Text>
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#3e6652', marginLeft: 12, marginTop: 12 }}>My Tasks</Text>
+      {loading ? (
+        <ActivityIndicator size="large" color="#3e6652" style={{ marginTop: 20 }} />
+      ) : filteredTasks.length === 0 ? (
+        <Text style={{ textAlign: 'center', marginTop: 20 }}>No tasks assigned for selected date.</Text>
       ) : (
         <FlatList
           data={filteredTasks}
           keyExtractor={(item) => item._id}
-          renderItem={renderTask}
+          renderItem={({ item }) => (
+            <View style={{ backgroundColor: item.status === 'Completed' ? '#A4D9AB' : '#e0e0e0', margin: 10, padding: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+              <Image source={{ uri: item.animalId?.photo || 'https://via.placeholder.com/50' }} style={{ width: 50, height: 50, borderRadius: 25, marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: 'bold' }}>{item.type}</Text>
+                <Text>{new Date(item.scheduleDate).toLocaleDateString()} – {item.scheduleTimes?.join(', ') || 'No time set'}</Text>
+                <Text>Animal: {item.animalId?.name || 'N/A'}</Text>
+                <Text>Status: {item.status}</Text>
+              </View>
+            </View>
+          )}
           contentContainerStyle={{ paddingBottom: 30 }}
         />
       )}
-
-      {/* Modals */}
-      {showStatusModal && (
-        <Modal transparent animationType="fade" visible={showStatusModal}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <Text style={styles.modalTitle}>Set Task Status</Text>
-              <TouchableOpacity
-                style={styles.statusButton}
-                onPress={() => updateTaskStatus('Completed')}
-              >
-                <Text style={styles.statusButtonText}>Mark as Completed</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowStatusModal(false)}>
-                <Text style={{ color: '#2f4f4f', marginTop: 10 }}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {showSuccess && (
-        <View style={styles.successContainer}>
-          <Text style={styles.successText}>✅ Task status updated!</Text>
-        </View>
-      )}
-      <ConfettiCannon count={100} origin={{ x: 200, y: 0 }} fadeOut autoStart={false} ref={confettiRef} />
     </View>
   );
 };
+
+
 
 
 
