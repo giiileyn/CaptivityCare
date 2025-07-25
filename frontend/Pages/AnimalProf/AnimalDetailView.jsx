@@ -63,10 +63,11 @@ const AnimalDetailView = ({ route, navigation }) => {
             <Text style={styles.tagText}>{animal.breed || 'Unknown'}</Text>
             <Text style={styles.tagLabel}>Breed</Text>
           </View>
-          <View style={styles.tag}>
-            <Text style={styles.tagText}>{animal.status || 'Unknown'}</Text>
+          <View style={[styles.tag, animal.status === 'needs_attention' && { backgroundColor: '#ffcccc' }]}>
+            <Text style={styles.tagText}>{animal.status}</Text>
             <Text style={styles.tagLabel}>Status</Text>
           </View>
+
         </View>
       </View>
 
