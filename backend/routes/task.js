@@ -1,8 +1,65 @@
 const express = require('express');
 const router = express.Router();
 const Task = require('../models/Task');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 // ================================
+
+// Cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Storage config for proof image uploads
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'task-proof-images',
+    allowed_formats: ['jpg', 'jpeg', 'png'],
+    transformation: [{ width: 800, height: 800, crop: 'limit' }]
+  }
+});
+
+const upload = multer({ storage });
+
+
+// ✅ PUT - Update task status with required imageProof when marking as Completed
+router.put('/status/:id', upload.single('imageProof'), async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Require imageProof only
+    if (!req.file) {
+      return res.status(400).json({ error: 'Proof image is required.' });
+    }
+
+    const update = {
+      imageProof: req.file.path,     // ✅ cloudinary image URL
+      completionVerified: false,     // Admin will verify this manually
+      status: 'Pending',             // Status remains pending by default
+      completedAt: new Date()        // Optional: you can log the time when user submitted proof
+    };
+
+    const updatedTask = await Task.findByIdAndUpdate(req.params.id, update, { new: true });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Proof submitted successfully. Waiting for admin verification.',
+      task: updatedTask
+    });
+
+  } catch (error) {
+    console.error('Error uploading proof:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 
 
@@ -237,7 +294,7 @@ router.put('/edit/:id', async (req, res) => {
 
 
 
-// Update only the status of a task
+// Update only the status of a task etu sa farmer
 router.put('/status/:id', async (req, res) => {
   try {
     const { status } = req.body;
@@ -272,8 +329,6 @@ router.put('/status/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-module.exports = router;
 
 
 

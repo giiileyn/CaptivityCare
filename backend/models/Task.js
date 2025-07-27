@@ -60,8 +60,21 @@ const taskSchema = new mongoose.Schema({
     default: 'Pending'
   },
   completedAt: {
-    type: Date
+    type: Date,
+  },
+
+  imageProof: { 
+          type: String, 
+          default: function() {
+              return `${process.env.CLOUDINARY_BASE_URL}/default_profile.png`;
+          }
+      },
+   completionVerified: {
+    type: Boolean,
+    default: false
   }
+  
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', taskSchema);

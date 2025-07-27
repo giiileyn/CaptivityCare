@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,89 +8,116 @@ import {
   StatusBar,
   ActivityIndicator,
   Modal,
-  Animated,
-  Dimensions,
-  Easing,
   Image,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import API_BASE_URL from '../../utils/api';
-import ConfettiCannon from 'react-native-confetti-cannon';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width } = Dimensions.get('window');
 
+const getTaskStatusText = (task) => {
+  if (task.completionVerified) return 'Completed';
+  const hasValidImageProof =
+    task.imageProof &&
+    typeof task.imageProof === 'string' &&
+    (task.imageProof.startsWith('http') || task.imageProof.startsWith('https') || task.imageProof.startsWith('data:image'));
+  if (hasValidImageProof) return 'Waiting for admin confirmation';
+  return 'Pending';
+};
+
 const ViewAssignedTasks = () => {
+  const [selectedImage, setSelectedImage] = useState(null);
   const [userName, setUserName] = useState('');
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const drawerAnim = new Animated.Value(-width); // slide from left
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const confettiRef = useRef(null);
+  const [filter, setFilter] = useState('All');
   const navigation = useNavigation();
 
-  const timeZone = 'Asia/Manila';
 
-  const getPhilippineToday = () => {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
+  
+  const filteredTasks = tasks.filter((task) => {
+  const hasProof =
+    task.imageProof &&
+    typeof task.imageProof === 'string' &&
+    (task.imageProof.startsWith('http') || task.imageProof.startsWith('data:image'));
+
+  if (filter === 'Pending') {
+    return !hasProof && task.status === 'Pending' && task.completionVerified === false;
+  }
+
+  if (filter === 'In-Progress') {
+    return hasProof && task.status === 'Pending' && task.completionVerified === false;
+  }
+
+  if (filter === 'Completed') {
+    return hasProof && task.status === 'Completed' && task.completionVerified === true;
+  }
+
+  return true; // All
+});
+
+  const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      alert('Permission to access media library is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
     });
 
-    const parts = formatter.formatToParts(new Date());
-    const year = parts.find(p => p.type === 'year')?.value;
-    const month = parts.find(p => p.type === 'month')?.value;
-    const day = parts.find(p => p.type === 'day')?.value;
-
-    return new Date(`${year}-${month}-${day}T00:00:00`);
-  };
-
-  const today = getPhilippineToday();
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [weekIndex, setWeekIndex] = useState(0);
-
-  const generateWeek = (startDate) => {
-    const week = [];
-    const start = new Date(startDate);
-    start.setDate(start.getDate() - start.getDay());
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      week.push(d);
+    if (!result.canceled && result.assets?.length > 0) {
+      setSelectedImage(result.assets[0]);
     }
-    return week;
   };
 
-  const currentWeekStart = new Date(today);
-  currentWeekStart.setDate(today.getDate() + weekIndex * 7);
-  const weekDates = generateWeek(currentWeekStart);
+  const updateTaskStatus = async () => {
+    if (!selectedImage) {
+      alert('Please upload an image proof first.');
+      return;
+    }
 
-  const updateTaskStatus = async (newStatus) => {
+    const formData = new FormData();
+    formData.append('status', 'Completed');
+    formData.append('imageProof', {
+      uri: selectedImage.uri,
+      name: 'proof.jpg',
+      type: 'image/jpeg',
+    });
+
     try {
-      await axios.put(`${API_BASE_URL}/tasks/status/${selectedTaskId}`, {
-        status: newStatus,
+      await axios.put(`${API_BASE_URL}/tasks/status/${selectedTaskId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       setTasks((prev) =>
         prev.map((task) =>
-          task._id === selectedTaskId ? { ...task, status: newStatus } : task
+          task._id === selectedTaskId
+            ? { ...task, status: 'Pending', completionVerified: false, imageProof: selectedImage.uri }
+            : task
         )
       );
 
       setShowSuccess(true);
-      confettiRef.current && confettiRef.current.start();
-
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (error) {
       console.error('Error updating status:', error);
     } finally {
       setShowStatusModal(false);
       setSelectedTaskId(null);
+      setSelectedImage(null);
     }
   };
 
@@ -119,109 +146,83 @@ const ViewAssignedTasks = () => {
     fetchTasks();
   }, []);
 
-  const filteredTasks = tasks.filter((task) => {
-    const selectedDateISO = selectedDate.toISOString().slice(0, 10);
-    const taskDateISO = new Date(task.scheduleDate).toISOString().slice(0, 10);
-    const isSameDay = taskDateISO === selectedDateISO;
-    const isRecurring = task.isRecurring;
-    const isRecurringAndValid = isRecurring && new Date(selectedDate) >= new Date(task.scheduleDate);
-    return isSameDay || isRecurringAndValid;
-  });
-
-  const formattedMonth = selectedDate.toLocaleString('default', { month: 'long' });
-  const formattedYear = selectedDate.getFullYear();
-
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="light-content" backgroundColor="#264835" />
 
-      {/* Header */}
-      <View style={{
-        margin: 12,
-        paddingVertical: 18,
-        paddingHorizontal: 16,
-        backgroundColor: '#fff',
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <TouchableOpacity style={{ backgroundColor: '#d8f5dc', padding: 8, borderRadius: 12 }}>
-            <Ionicons name="menu" size={20} color="#3e6652" />
+      {/* Header with Drawer */}
+      <View style={styles.greenHeader}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+            <Ionicons name="menu" size={26} color="#A7D6B0" />
           </TouchableOpacity>
-
-          <Text style={{ fontSize: 18, fontWeight: '600', color: '#3e6652' }}>
-            {formattedMonth}, {formattedYear}
-          </Text>
-
-          <TouchableOpacity>
-            <Ionicons name="search" size={20} color="#3e6652" style={{ backgroundColor: '#d8f5dc', padding: 8, borderRadius: 12 }} />
+          <TouchableOpacity style={styles.headerIcon}>
+            <Ionicons name="search" size={24} color="#A7D6B0" />
           </TouchableOpacity>
         </View>
-
-        {/* Days */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 }}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
-            <View key={idx} style={{ width: 40, alignItems: 'center' }}>
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#3e6652' }}>{day}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 4 }}>
-          {weekDates.map((date, index) => {
-            const isSelected = date.toDateString() === selectedDate.toDateString();
-            return (
-              <TouchableOpacity key={index} onPress={() => setSelectedDate(date)}>
-                <View style={{ backgroundColor: isSelected ? '#112e20ff' : '#eee', borderRadius: 18, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: isSelected ? '#fff' : '#333', fontWeight: isSelected ? 'bold' : 'normal' }}>{date.getDate()}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-          <TouchableOpacity onPress={() => setWeekIndex(prev => prev - 1)}>
-            <Ionicons name="chevron-back" size={24} color="#3e6652" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setWeekIndex(prev => prev + 1)}>
-            <Ionicons name="chevron-forward" size={24} color="#3e6652" />
-          </TouchableOpacity>
+        <View style={{ marginTop: 10 }}>
+          <Text style={styles.headerGreeting}>Hello, Farmer {userName}!</Text>
+          <Text style={styles.headerSubtext}>Are you going to complete all the task today?</Text>
         </View>
       </View>
+<View style={styles.filterRow}>
+  <TouchableOpacity onPress={() => setFilter('All')}>
+    <Text style={styles.seeAllText}>See All</Text>
+  </TouchableOpacity>
+</View>
 
-      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#3e6652', marginLeft: 12, marginTop: 12 }}>My Tasks</Text>
+<View style={styles.filterButtons}>
+  {['Pending', 'In-Progress', 'Completed'].map((status) => (
+    <TouchableOpacity
+      key={status}
+      style={[
+        styles.filterPill,
+        filter === status && { backgroundColor: '#264835' },
+      ]}
+      onPress={() => setFilter(status)}
+    >
+      <Text style={[styles.filterText, filter === status && { color: '#fff' }]}>{status}</Text>
+    </TouchableOpacity>
+  ))}
+</View>
+
+
+
+
 
       {loading ? (
         <ActivityIndicator size="large" color="#3e6652" style={{ marginTop: 20 }} />
-      ) : filteredTasks.length === 0 ? (
-        <Text style={{ textAlign: 'center', marginTop: 20 }}>No tasks assigned for selected date.</Text>
+      ) : tasks.length === 0 ? (
+        <Text style={{ textAlign: 'center', marginTop: 20 }}>No tasks assigned.</Text>
       ) : (
         <FlatList
           data={filteredTasks}
           keyExtractor={(item) => item._id}
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => navigation.navigate('ViewDetailedTask', { task: item })}>
-              <View style={{
-                backgroundColor: item.status === 'Completed' ? '#A4D9AB' : '#e0e0e0',
-                margin: 10,
-                padding: 10,
-                borderRadius: 8,
-                flexDirection: 'row',
-                alignItems: 'center'
-              }}>
-                <Image source={{ uri: item.animalId?.photo || 'https://via.placeholder.com/50' }}
-                  style={{ width: 50, height: 50, borderRadius: 25, marginRight: 10 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: 'bold' }}>{item.type}</Text>
+              <View
+                  style={[
+                    styles.taskCard,
+                    {
+                      backgroundColor: item.completionVerified
+                        ? '#A4D9AB' // Completed
+                        : item.imageProof &&
+                          (item.imageProof.startsWith('http') || item.imageProof.startsWith('data:image'))
+                        ? '#ccd9a4ff' // In Progress (Waiting for Admin Confirmation)
+                        : '#e0e0e0', // Pending
+                    },
+                  ]}
+                >
+
+                <Image
+                  source={{ uri: item.animalId?.photo || 'https://via.placeholder.com/50' }}
+                  style={styles.animalImage}
+                />
+                <View style={styles.taskInfo}>
+                  <Text style={styles.taskTitle}>{item.type}</Text>
                   <Text>{new Date(item.scheduleDate).toLocaleDateString()} – {item.scheduleTimes?.join(', ') || 'No time set'}</Text>
                   <Text>Animal: {item.animalId?.name || 'N/A'}</Text>
-                  <Text>Status: {item.status}</Text>
+                  <Text>{getTaskStatusText(item)}</Text>
                 </View>
                 <TouchableOpacity onPress={() => {
                   setSelectedTaskId(item._id);
@@ -241,27 +242,29 @@ const ViewAssignedTasks = () => {
         <Modal transparent animationType="fade" visible={showStatusModal}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <Text style={styles.modalTitle}>Set Task Status</Text>
+              <Text style={styles.modalTitle}>Upload Proof & Mark Completed</Text>
+
               <TouchableOpacity
-              style={[
-                styles.statusButton,
-                tasks.find((t) => t._id === selectedTaskId)?.status === 'Completed' && { backgroundColor: '#ccc' },
-              ]}
-              onPress={() => {
-                const task = tasks.find((t) => t._id === selectedTaskId);
-                if (task?.status !== 'Completed') {
-                  updateTaskStatus('Completed');
-                }
-              }}
-              disabled={tasks.find((t) => t._id === selectedTaskId)?.status === 'Completed'}
-            >
-              <Text style={[
-                styles.statusButtonText,
-                tasks.find((t) => t._id === selectedTaskId)?.status === 'Completed' && { color: '#888' }
-              ]}>
-                Mark as Completed
-              </Text>
-            </TouchableOpacity>
+                style={{ backgroundColor: '#d8f5dc', padding: 10, borderRadius: 10, marginBottom: 10 }}
+                onPress={pickImage}
+              >
+                <Text style={{ color: '#2f4f4f', fontWeight: 'bold' }}>Upload Image</Text>
+              </TouchableOpacity>
+
+              {selectedImage && (
+                <Image
+                  source={{ uri: selectedImage.uri }}
+                  style={{ width: 100, height: 100, borderRadius: 10, marginBottom: 10 }}
+                />
+              )}
+
+              <TouchableOpacity
+                style={[styles.statusButton, { backgroundColor: '#112e20ff' }]}
+                onPress={updateTaskStatus}
+                disabled={!selectedImage}
+              >
+                <Text style={[styles.statusButtonText, { color: 'white' }]}>Submit Task</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity onPress={() => setShowStatusModal(false)}>
                 <Text style={{ color: '#2f4f4f', marginTop: 10 }}>Cancel</Text>
@@ -271,18 +274,15 @@ const ViewAssignedTasks = () => {
         </Modal>
       )}
 
-      {/* Confetti and Success */}
+      {/* Success Toast */}
       {showSuccess && (
         <View style={styles.successContainer}>
           <Text style={styles.successText}>✅ Task status updated!</Text>
         </View>
       )}
-      <ConfettiCannon count={100} origin={{ x: 200, y: 0 }} fadeOut autoStart={false} ref={confettiRef} />
     </View>
   );
 };
-
-
 
 
 
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   headerIcon: {
-    backgroundColor: '#d8f5dc',
+    backgroundColor: '#446A53',
     padding: 8,
     borderRadius: 12,
   },
@@ -314,6 +314,58 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  greenHeader: {
+    backgroundColor: '#264835',
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerGreeting: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  headerSubtext: {
+    color: '#d0e8dc',
+    fontSize: 14,
+  },
+  filterRow: {
+  flexDirection: 'row',
+  justifyContent: 'flex-end',
+  marginTop: 10,
+  marginRight: 20,
+},
+seeAllText: {
+  fontWeight: '600',
+  color: '#264835',
+  fontSize: 14,
+},
+filterButtons: {
+  flexDirection: 'row',
+  justifyContent: 'center',
+  marginVertical: 10,
+  gap: 10,
+},
+filterPill: {
+  backgroundColor: '#A7D6B0',
+  paddingHorizontal: 16,
+  paddingVertical: 8,
+  borderRadius: 20,
+},
+filterText: {
+  color: '#264835',
+  fontWeight: '600',
+  fontSize: 13,
+},
+
   monthYear: {
     fontSize: 20,
     fontWeight: '600',
