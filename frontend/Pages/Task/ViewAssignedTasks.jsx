@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,16 @@ import {
   Modal,
   Image,
   Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import API_BASE_URL from '../../utils/api';
-import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import CustomDrawer from '../CustomDrawer'; // <- make sure this is your drawer
 
 const { width } = Dimensions.get('window');
 
@@ -36,35 +39,76 @@ const ViewAssignedTasks = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const drawerAnim = new Animated.Value(-width); // slide from left
+  const slideAnim = useRef(new Animated.Value(-width * 0.8)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [filter, setFilter] = useState('All');
   const navigation = useNavigation();
 
-
+    const openDrawer = () => {
+      setDrawerVisible(true);
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 1,
+          duration: 350,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        })
+      ]).start();
+    };
   
+    const closeDrawer = () => {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: -width * 0.8,
+          duration: 300,
+          easing: Easing.bezier(0.55, 0.06, 0.68, 0.19),
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 0,
+          duration: 250,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        })
+      ]).start(() => setDrawerVisible(false));
+    };
+  
+    // if (loading) {
+    //   return (
+    //     <View style={styles.centered}>
+    //       <ActivityIndicator size="large" color="#2f4f4f" />
+    //       <Text>Loading animals...</Text>
+    //     </View>
+    //   );
+    // }
+
+
   const filteredTasks = tasks.filter((task) => {
-  const hasProof =
-    task.imageProof &&
-    typeof task.imageProof === 'string' &&
-    (task.imageProof.startsWith('http') || task.imageProof.startsWith('data:image'));
+    const hasProof =
+      task.imageProof &&
+      typeof task.imageProof === 'string' &&
+      (task.imageProof.startsWith('http') || task.imageProof.startsWith('data:image'));
 
-  if (filter === 'Pending') {
-    return !hasProof && task.status === 'Pending' && task.completionVerified === false;
-  }
-
-  if (filter === 'In-Progress') {
-    return hasProof && task.status === 'Pending' && task.completionVerified === false;
-  }
-
-  if (filter === 'Completed') {
-    return hasProof && task.status === 'Completed' && task.completionVerified === true;
-  }
-
-  return true; // All
-});
+    if (filter === 'Pending') {
+      return !hasProof && task.status === 'Pending' && task.completionVerified === false;
+    }
+    if (filter === 'In-Progress') {
+      return hasProof && task.status === 'Pending' && task.completionVerified === false;
+    }
+    if (filter === 'Completed') {
+      return hasProof && task.status === 'Completed' && task.completionVerified === true;
+    }
+    return true;
+  });
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -122,74 +166,78 @@ const ViewAssignedTasks = () => {
   };
 
   useEffect(() => {
-    const loadUserData = async () => {
-      const userData = await AsyncStorage.getItem('userData');
-      if (userData) {
-        const user = JSON.parse(userData);
-        setUserName(user.name || 'Farmer');
-      }
-    };
+  const loadUserData = async () => {
+    const userData = await AsyncStorage.getItem('userData');
+    console.log('🧑 User Data:', userData);
+    if (userData) {
+      const user = JSON.parse(userData);
+      setUserName(user.name || 'Farmer');
+    }
+  };
 
+ 
     const fetchTasks = async () => {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        const res = await axios.get(`${API_BASE_URL}/tasks/user/${userId}`);
-        setTasks(res.data);
-      } catch (err) {
-        console.error('Failed to fetch tasks:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  try {
+    const userId = await AsyncStorage.getItem('userId');
+    if (!userId) {
+      console.warn('❌ No userId found in AsyncStorage.');
+      return;
+    }
+
+    const res = await axios.get(`${API_BASE_URL}/tasks/user/${userId}`);
+    console.log('✅ Tasks fetched:', res.data);
+    setTasks(res.data);
+  } catch (err) {
+    console.error('❌ Failed to fetch tasks:', err);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
     loadUserData();
     fetchTasks();
   }, []);
 
-  return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#264835" />
+   return (
+     <View style={styles.container}>
+       <StatusBar barStyle="light-content" backgroundColor="#2f4f4f" />
+ 
+      {/* Header with Drawer Button */}
+      <View style={styles.header}>
+              <View style={styles.headerTop}>
+                <TouchableOpacity onPress={openDrawer}>
+                  <Ionicons name="menu" size={28} color="#a4d9ab" />
+                </TouchableOpacity>
+                <TouchableOpacity>
+                  <Ionicons name="search" size={28} color="#a4d9ab" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.headerGreeting}>Hello, {userName}!</Text>
+              <Text style={styles.headerSub}>Are you going to finish all your task today?</Text>
+            </View>
+      
 
-      {/* Header with Drawer */}
-      <View style={styles.greenHeader}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-            <Ionicons name="menu" size={26} color="#A7D6B0" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIcon}>
-            <Ionicons name="search" size={24} color="#A7D6B0" />
-          </TouchableOpacity>
-        </View>
-        <View style={{ marginTop: 10 }}>
-          <Text style={styles.headerGreeting}>Hello, Farmer {userName}!</Text>
-          <Text style={styles.headerSubtext}>Are you going to complete all the task today?</Text>
-        </View>
+      {/* Filter UI */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity onPress={() => setFilter('All')}>
+          <Text style={styles.seeAllText}>See All</Text>
+        </TouchableOpacity>
       </View>
-<View style={styles.filterRow}>
-  <TouchableOpacity onPress={() => setFilter('All')}>
-    <Text style={styles.seeAllText}>See All</Text>
-  </TouchableOpacity>
-</View>
 
-<View style={styles.filterButtons}>
-  {['Pending', 'In-Progress', 'Completed'].map((status) => (
-    <TouchableOpacity
-      key={status}
-      style={[
-        styles.filterPill,
-        filter === status && { backgroundColor: '#264835' },
-      ]}
-      onPress={() => setFilter(status)}
-    >
-      <Text style={[styles.filterText, filter === status && { color: '#fff' }]}>{status}</Text>
-    </TouchableOpacity>
-  ))}
-</View>
+      <View style={styles.filterButtons}>
+        {['Pending', 'In-Progress', 'Completed'].map((status) => (
+          <TouchableOpacity
+            key={status}
+            style={[styles.filterPill, filter === status && { backgroundColor: '#264835' }]}
+            onPress={() => setFilter(status)}
+          >
+            <Text style={[styles.filterText, filter === status && { color: '#fff' }]}>{status}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-
-
-
-
+      {/* Task List */}
       {loading ? (
         <ActivityIndicator size="large" color="#3e6652" style={{ marginTop: 20 }} />
       ) : tasks.length === 0 ? (
@@ -201,19 +249,18 @@ const ViewAssignedTasks = () => {
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => navigation.navigate('ViewDetailedTask', { task: item })}>
               <View
-                  style={[
-                    styles.taskCard,
-                    {
-                      backgroundColor: item.completionVerified
-                        ? '#A4D9AB' // Completed
-                        : item.imageProof &&
-                          (item.imageProof.startsWith('http') || item.imageProof.startsWith('data:image'))
-                        ? '#ccd9a4ff' // In Progress (Waiting for Admin Confirmation)
-                        : '#e0e0e0', // Pending
-                    },
-                  ]}
-                >
-
+                style={[
+                  styles.taskCard,
+                  {
+                    backgroundColor: item.completionVerified
+                      ? '#A4D9AB'
+                      : item.imageProof &&
+                        (item.imageProof.startsWith('http') || item.imageProof.startsWith('data:image'))
+                      ? '#ccd9a4ff'
+                      : '#e0e0e0',
+                  },
+                ]}
+              >
                 <Image
                   source={{ uri: item.animalId?.photo || 'https://via.placeholder.com/50' }}
                   style={styles.animalImage}
@@ -243,7 +290,6 @@ const ViewAssignedTasks = () => {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
               <Text style={styles.modalTitle}>Upload Proof & Mark Completed</Text>
-
               <TouchableOpacity
                 style={{ backgroundColor: '#d8f5dc', padding: 10, borderRadius: 10, marginBottom: 10 }}
                 onPress={pickImage}
@@ -280,16 +326,50 @@ const ViewAssignedTasks = () => {
           <Text style={styles.successText}>✅ Task status updated!</Text>
         </View>
       )}
-    </View>
-  );
-};
 
+            {/* Drawer */}
+            <Modal visible={drawerVisible} transparent animationType="none" onRequestClose={closeDrawer}>
+              <View style={styles.modalContainer}>
+                <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
+                  <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeDrawer} />
+                </Animated.View>
+                <Animated.View style={[styles.drawerContainer, { transform: [{ translateX: slideAnim }] }]}>
+                  <CustomDrawer navigation={navigation} onClose={closeDrawer} />
+                </Animated.View>
+              </View>
+            </Modal>
+          </View>
+        );
+      };
 
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f6f9f7',
+  },
+    header: {
+    backgroundColor: '#2f4f4f',
+    paddingTop: 50,
+    paddingBottom: 25,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  headerGreeting: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  headerSub: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 5,
   },
    headerWrapper: {
     flexDirection: 'row',
@@ -448,12 +528,8 @@ filterText: {
     alignItems: 'center',
   },
   modalContainer: {
-    width: '80%',
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 15,
-    alignItems: 'center',
-    elevation: 6,
+    flex: 1,
+    flexDirection: 'row',
   },
   modalTitle: {
     fontSize: 18,
@@ -504,15 +580,21 @@ filterText: {
     shadowOffset: { width: 0, height: 4 },
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#00000088',
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   drawerContainer: {
-    width: width * 0.8,
-    height: '100%',
+   width: width * 0.8,
     backgroundColor: '#fff',
-    paddingTop: 40,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
   },
   centered: {
     flex: 1,
