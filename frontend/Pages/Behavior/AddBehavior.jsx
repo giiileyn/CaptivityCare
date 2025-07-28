@@ -19,6 +19,7 @@ import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../../utils/api';
 import CustomDrawer from '../CustomDrawer';
+import { useNavigation } from '@react-navigation/native';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -30,7 +31,7 @@ const ViewAnimals = () => {
   const [movement, setMovement] = useState('Active');
   const [mood, setMood] = useState('Calm');
   const [notes, setNotes] = useState('');
-
+  const navigation = useNavigation();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(-screenWidth * 0.8)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -215,7 +216,7 @@ const ViewAnimals = () => {
               elevation: 5,
             }}
           >
-            <CustomDrawer onClose={closeDrawer} />
+            <CustomDrawer onClose={closeDrawer} navigation={navigation} />
           </Animated.View>
         </View>
       </Modal>
