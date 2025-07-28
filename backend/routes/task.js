@@ -4,6 +4,7 @@ const Task = require('../models/Task');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const mongoose = require('mongoose');
 
 // ================================
 
@@ -364,6 +365,44 @@ router.get('/count/completed', async (req, res) => {
     const count = await Task.countDocuments({ status: 'Completed' });
     res.json({ success: true, count });
   } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// Count pending and completed tasks assigned to a specific user
+router.get('/count/pending/:userId', async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.params.userId);
+
+    const count = await Task.countDocuments({
+      assignedTo: userId,
+      status: 'Pending'
+    });
+
+    res.json({ success: true, count });
+  } catch (err) {
+    console.error('❌ Error counting pending tasks:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+
+
+// Count completed tasks for a specific user
+router.get('/count/completed/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const count = await Task.countDocuments({
+      assignedTo: new mongoose.Types.ObjectId(userId),
+      status: 'Completed',
+    });
+
+    res.json({ success: true, count });
+  } catch (err) {
+    console.error('❌ Error counting completed tasks:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });

@@ -84,4 +84,82 @@ router.get('/singlebehavior/:animalId', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+router.get('/recent/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const recentLogs = await AnimalBehavior.find({ recordedBy: userId })
+      .populate('animalId', 'name species photo status')
+      .sort({ createdAt: -1 })
+      .limit(10); // Last 10 entries by this user
+
+    res.status(200).json({ success: true, logs: recentLogs });
+  } catch (error) {
+    console.error('Error fetching recent behavior logs:', error);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+
+router.get('/summary', async (req, res) => {
+  const days = parseInt(req.query.range) || 7; // default last 7 days
+
+  const fromDate = new Date();
+  fromDate.setDate(fromDate.getDate() - days);
+
+  try {
+    const summary = await AnimalBehavior.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: fromDate }
+          // no recordedBy filtering here
+        }
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            eating: "$eating",
+            movement: "$movement",
+            mood: "$mood"
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: "$_id.date",
+          eating: {
+            $push: { k: "$_id.eating", v: "$count" }
+          },
+          movement: {
+            $push: { k: "$_id.movement", v: "$count" }
+          },
+          mood: {
+            $push: { k: "$_id.mood", v: "$count" }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          date: "$_id",
+          eating: { $arrayToObject: "$eating" },
+          movement: { $arrayToObject: "$movement" },
+          mood: { $arrayToObject: "$mood" }
+        }
+      },
+      { $sort: { date: 1 } }
+    ]);
+
+    res.status(200).json({ success: true, data: summary });
+  } catch (error) {
+    console.error('Error fetching behavior summary:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch behavior summary' });
+  }
+});
+
+
 module.exports = router;

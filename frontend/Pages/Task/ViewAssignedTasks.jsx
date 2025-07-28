@@ -288,8 +288,8 @@ const ViewAssignedTasks = () => {
       {showStatusModal && (
         <Modal transparent animationType="fade" visible={showStatusModal}>
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <Text style={styles.modalTitle}>Upload Proof & Mark Completed</Text>
+            <View style={styles.card}>
+              <Text style={styles.modalTitle}>Upload Proof of task </Text>
               <TouchableOpacity
                 style={{ backgroundColor: '#d8f5dc', padding: 10, borderRadius: 10, marginBottom: 10 }}
                 onPress={pickImage}
@@ -527,9 +527,18 @@ filterText: {
     justifyContent: 'center',
     alignItems: 'center',
   },
+  card: {
+     width: '85%',
+  backgroundColor: 'white',
+  borderRadius: 20,
+  padding: 20,
+  alignItems: 'center',
+  elevation: 10,
+  },
   modalContainer: {
     flex: 1,
     flexDirection: 'row',
+
   },
   modalTitle: {
     fontSize: 18,
