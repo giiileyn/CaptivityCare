@@ -19,7 +19,7 @@ import axios from 'axios';
 import API_BASE_URL from '../../utils/api';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import CustomDrawer from '../CustomDrawer'; // <- make sure this is your drawer
+import CustomDrawer from '../CustomDrawer'; 
 
 const { width } = Dimensions.get('window');
 

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import API_BASE_URL from '../../utils/api';
 
 const AnimalDetailView = ({ route, navigation }) => {
   const { animal } = route.params;
@@ -19,7 +20,7 @@ const AnimalDetailView = ({ route, navigation }) => {
 
   const fetchBehaviors = async () => {
     try {
-      const res = await axios.get(`http://192.168.254.107:5000/behavior/singlebehavior/${animal._id}`);
+      const res = await axios.get(`${API_BASE_URL}/behavior/singlebehavior/${animal._id}`);
       setBehaviors(res.data.behaviors || []);
     } catch (err) {
       console.error('Error fetching behaviors:', err);

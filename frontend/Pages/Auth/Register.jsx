@@ -22,7 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
-// Simplified InputField component with no focus styling changes
+
 const InputField = React.memo(({
   name,
   icon,
@@ -77,7 +77,7 @@ const Register = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // vet Information
+
 
   const [isVet, setIsVet] = useState(false);
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -192,7 +192,7 @@ const Register = ({ navigation }) => {
     }
   };
 
-  // Memoized toggle functions
+
   const toggleShowPassword = useCallback(() => {
     setShowPassword(prev => !prev);
   }, []);
@@ -235,7 +235,7 @@ const Register = ({ navigation }) => {
             <Text style={styles.subtitle}>Join us and start your journey</Text>
           </View>
           
-          {/* Form Section */}
+          {/* t  t Form Section * */}
           <View style={styles.formContainer}>
             {/* Personal Information */}
             <View style={styles.sectionContainer}>

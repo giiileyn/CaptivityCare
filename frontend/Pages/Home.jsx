@@ -229,7 +229,7 @@ useEffect(() => {
           strokeWidth: 2,
         },
       ],
-      // legend removed
+    
     }}
     width={Dimensions.get('window').width - 30}
     height={220}
@@ -406,7 +406,7 @@ taskTitle: {
 },
 scrollView: {
   flex: 1,
-  paddingTop: 18, // Adjust based on your header height
+  paddingTop: 18, 
   backgroundColor: '#f8f9fa',
 },
 taskBoxes: {

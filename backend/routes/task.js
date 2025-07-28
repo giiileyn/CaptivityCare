@@ -28,7 +28,7 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 
-// ✅ PUT - Update task status with required imageProof when marking as Completed
+//  Update task status with required imageProof when marking as Completed
 router.put('/status/:id', upload.single('imageProof'), async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
@@ -42,10 +42,10 @@ router.put('/status/:id', upload.single('imageProof'), async (req, res) => {
     }
 
     const update = {
-      imageProof: req.file.path,     // ✅ cloudinary image URL
-      completionVerified: false,     // Admin will verify this manually
-      status: 'Pending',             // Status remains pending by default
-      completedAt: new Date()        // Optional: you can log the time when user submitted proof
+      imageProof: req.file.path,    
+      completionVerified: false,    
+      status: 'Pending',             
+      completedAt: new Date()        
     };
 
     const updatedTask = await Task.findByIdAndUpdate(req.params.id, update, { new: true });
@@ -370,7 +370,7 @@ router.get('/count/completed', async (req, res) => {
 });
 
 
-// Count pending and completed tasks assigned to a specific user
+// Count pending and completed tasks assigned sa uer
 router.get('/count/pending/:userId', async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.params.userId);

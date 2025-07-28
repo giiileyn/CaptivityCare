@@ -93,22 +93,25 @@ const CustomDrawer = ({ navigation, onClose }) => {
     );
   };
 
-  const performLogout = async () => {
-    try {
-      onClose?.();
-      await AsyncStorage.multiRemove(['userToken', 'userData', 'isAuthenticated']);
-      
-      showToast('success', 'Logged Out', 'You have been successfully logged out');
-      
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-      showToast('error', 'Logout Failed', 'Something went wrong. Please try again.');
-    }
-  };
+ const performLogout = async () => {
+  try {
+    // Clear all login-related data locally
+    await AsyncStorage.multiRemove(['userToken', 'userData', 'isAuthenticated']);
+
+    showToast('success', 'Logged Out', 'You have been successfully logged out');
+
+    
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    showToast('error', 'Logout Failed', 'Something went wrong. Please try again.');
+  }
+};
+
+
 
   const renderMenuItem = (item, isBottom = false) => (
     <TouchableOpacity
