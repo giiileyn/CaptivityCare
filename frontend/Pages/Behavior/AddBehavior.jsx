@@ -20,6 +20,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../../utils/api';
 import CustomDrawer from '../CustomDrawer';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -35,6 +38,7 @@ const ViewAnimals = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(-screenWidth * 0.8)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const [video, setVideo] = useState(null);
 
   const openDrawer = () => {
     setDrawerVisible(true);
@@ -52,6 +56,51 @@ const ViewAnimals = () => {
       }),
     ]).start();
   };
+
+  const requestPermission = async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    alert('Permission to access media library is required!');
+  }
+};
+
+const pickVideo = async () => {
+  if (video) return; // prevent re-picking if already selected
+
+  try {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      alert('Permission to access media library is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (!result.cancelled) {
+      const localUri = result.assets[0].uri;
+      const filename = localUri.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename || '');
+      const type = match ? `video/${match[1]}` : `video/mp4`;
+
+      setVideo({
+        uri: localUri,
+        name: filename,
+        type,
+      });
+
+      console.log('✅ Video selected:', { uri: localUri, name: filename, type });
+    } else {
+      console.log('🚫 User cancelled picking video.');
+    }
+  } catch (error) {
+    console.error('❌ Error picking video:', error);
+  }
+};
+
 
   const closeDrawer = () => {
     Animated.parallel([
@@ -89,30 +138,47 @@ const ViewAnimals = () => {
   };
 
   const submitBehavior = async () => {
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        alert('User ID not found. Please log in again.');
-        return;
-      }
-
-      await axios.post(`${API_BASE_URL}/behavior/add`, {
-        animalId: selectedAnimal._id,
-        eating,
-        movement,
-        mood,
-        notes,
-        recordedBy: userId,
-      });
-
-      alert('Behavior logged!');
-      setModalVisible(false);
-      setNotes('');
-    } catch (err) {
-      console.error('Submit error:', err.response?.data || err.message);
-      alert('Error submitting behavior');
+  try {
+    const userId = await AsyncStorage.getItem('userId');
+    if (!userId) {
+      alert('User ID not found. Please log in again.');
+      return;
     }
-  };
+
+    if (!video) {
+      alert('Please attach a proof video before submitting.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('animalId', selectedAnimal._id);
+    formData.append('eating', eating);
+    formData.append('movement', movement);
+    formData.append('mood', mood);
+    formData.append('notes', notes);
+    formData.append('recordedBy', userId);
+
+    formData.append('proofVideo', {
+  uri: video.uri,
+  name: video.name,
+  type: video.type,
+});
+
+
+
+    await axios.post(`${API_BASE_URL}/behavior/add`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    alert('Behavior logged!');
+    setModalVisible(false);
+    setNotes('');
+    setVideo(null);
+  } catch (err) {
+    console.error('Submit error:', err.response?.data || err.message);
+    alert('Error submitting behavior');
+  }
+};
 
   const renderItem = ({ item }) => (
     <View style={styles.cardWrapper}>
@@ -190,6 +256,20 @@ const ViewAnimals = () => {
               value={notes}
               onChangeText={setNotes}
             />
+            <TouchableOpacity onPress={() => !video && pickVideo()}
+              style={{ padding: 10, backgroundColor: '#ddd', marginVertical: 10, borderRadius: 5 }}
+            >
+              <View>
+                <Text>Attach Video</Text>
+                {video && (
+                  <Text style={{ fontSize: 12, marginBottom: 5, color: '#555' }}>
+                    Attached: {video.fileName}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+
+
 
             <TouchableOpacity style={styles.submitBtn} onPress={submitBehavior}>
               <Text style={{ color: '#fff', fontWeight: 'bold' }}>Submit</Text>
