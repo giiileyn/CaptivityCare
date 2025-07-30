@@ -24,7 +24,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// Get all animals
+// ✅ GET all animals
 router.get('/getAll', async (req, res) => {
   try {
     const animals = await Animal.find();
@@ -35,20 +35,24 @@ router.get('/getAll', async (req, res) => {
   }
 });
 
-// Add new animal
-router.post('/add', async (req, res) => {
+// ✅ Add new animal with image upload
+router.post('/add', upload.single('photo'), async (req, res) => {
   try {
-    const { name, species, breed, age, owner, status } = req.body;
-    const photo = req.file?.path;
+    const { name, species, breed, age, status } = req.body;
+
+    let photoUrl = '';
+    if (req.file && req.file.path) {
+      photoUrl = req.file.path; // ✅ this is the actual Cloudinary image URL
+    }
 
     const newAnimal = await Animal.create({
       name,
       species,
       breed,
       age,
-      owner,
+      
       status,
-      photo
+      photo: photoUrl, // ✅ store real URL
     });
 
     res.status(201).json({ success: true, animal: newAnimal });
@@ -58,7 +62,8 @@ router.post('/add', async (req, res) => {
   }
 });
 
-// GET /count - Count all animals
+
+// ✅ Count all animals
 router.get('/count', async (req, res) => {
   try {
     const count = await Animal.countDocuments();
@@ -69,7 +74,7 @@ router.get('/count', async (req, res) => {
   }
 });
 
-// Optional: Get single animal by ID
+// ✅ Get single animal by ID
 router.get('/:id', async (req, res) => {
   try {
     const animal = await Animal.findById(req.params.id);
@@ -81,14 +86,15 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// ✅ Update animal (with optional photo update)
 router.put('/update/:id', upload.single('photo'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    const updateData = { ...req.body };
+    const { vetId, assignmentReason, assignedAt, ...filteredBody } = req.body; // ❌ remove vet fields
+    const updateData = { ...filteredBody };
 
     if (req.file) {
-      // If new photo is uploaded, add the Cloudinary path
       updateData.photo = req.file.path;
     }
 
@@ -106,7 +112,25 @@ router.put('/update/:id', upload.single('photo'), async (req, res) => {
 });
 
 
+// ✅ Inactivate animal (set status to 'deceased' instead of deleting)
+router.delete('/delete/:id', async (req, res) => {
+  try {
+    const animal = await Animal.findByIdAndUpdate(
+      req.params.id,
+      { status: 'deceased' }, // Or use 'inactive' based on your convention
+      { new: true }
+    );
 
+    if (!animal) {
+      return res.status(404).json({ success: false, message: 'Animal not found' });
+    }
+
+    res.status(200).json({ success: true, message: 'Animal marked as deceased', animal });
+  } catch (error) {
+    console.error('Error inactivating animal:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 
 module.exports = router;

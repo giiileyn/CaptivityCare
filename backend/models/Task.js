@@ -19,8 +19,8 @@ const taskSchema = new mongoose.Schema({
   scheduleDate: {
     type: Date,
     required: function () {
-    return this.isRecurring || !!this.scheduleTime;
-  }
+      return this.isRecurring || !!this.scheduleTime;
+    }
   },
   scheduleTimes: {
     type: [String], // e.g., ['08:00', '12:00', '18:00']
@@ -60,21 +60,15 @@ const taskSchema = new mongoose.Schema({
     default: 'Pending'
   },
   completedAt: {
-    type: Date,
+    type: Date
   },
-
-  imageProof: { 
-          type: String, 
-          default: function() {
-              return `${process.env.CLOUDINARY_BASE_URL}/default_profile.png`;
-          }
-      },
-   completionVerified: {
+  imageProof: {
+    type: String // URL of the uploaded image
+  },
+  completionVerified: {
     type: Boolean,
     default: false
   }
-  
-  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', taskSchema);

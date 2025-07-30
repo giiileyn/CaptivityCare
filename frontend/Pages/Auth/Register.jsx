@@ -235,7 +235,7 @@ const Register = ({ navigation }) => {
             <Text style={styles.subtitle}>Join us and start your journey</Text>
           </View>
           
-          {/* t  t Form Section * */}
+          {/* Form Section * */}
           <View style={styles.formContainer}>
             {/* Personal Information */}
             <View style={styles.sectionContainer}>

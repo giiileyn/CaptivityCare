@@ -11,16 +11,21 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-import API_BASE_URL from '../../utils/api';
+import { Feather } from '@expo/vector-icons';
+import SeekVetModal from './SeekVetModal'; // adjust path if needed
+// import { useState } from 'react';
+
 
 const AnimalDetailView = ({ route, navigation }) => {
   const { animal } = route.params;
   const [behaviors, setBehaviors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isSeekVetModalVisible, setSeekVetModalVisible] = useState(false);
+
 
   const fetchBehaviors = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/behavior/singlebehavior/${animal._id}`);
+      const res = await axios.get(`http://192.168.254.107:5000/behavior/singlebehavior/${animal._id}`);
       setBehaviors(res.data.behaviors || []);
     } catch (err) {
       console.error('Error fetching behaviors:', err);
@@ -71,6 +76,18 @@ const AnimalDetailView = ({ route, navigation }) => {
 
         </View>
       </View>
+      {animal.status === 'needs_attention' && (
+        <View style={styles.seekVetContainer}>
+          <TouchableOpacity
+            style={styles.seekVetButton}
+            onPress={() => setSeekVetModalVisible(true)}
+          >
+            <Feather name="alert-triangle" size={18} color="#e53e3e" />
+            <Text style={styles.seekVetText}>Seek Vet</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
 
       {/* Behavior Logs */}
       <View style={styles.behaviorSection}>
@@ -117,7 +134,14 @@ const AnimalDetailView = ({ route, navigation }) => {
   )}
 </View>
 
-    </ScrollView>
+<SeekVetModal
+  visible={isSeekVetModalVisible}
+  onClose={() => setSeekVetModalVisible(false)}
+  selectedAnimal={animal}
+/>
+</ScrollView>
+
+
   );
 };
 
@@ -166,6 +190,29 @@ const styles = StyleSheet.create({
     marginTop: 20,
     alignItems: 'center',
   },
+  seekVetContainer: {
+  marginTop: 15,
+  alignItems: 'center',
+},
+
+seekVetButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#ffe5e5',
+  paddingVertical: 10,
+  paddingHorizontal: 18,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: '#e53e3e',
+},
+
+seekVetText: {
+  color: '#e53e3e',
+  fontWeight: '600',
+  fontSize: 14,
+  marginLeft: 8,
+},
+
   animalName: {
     fontSize: 24,
     fontWeight: '600',
